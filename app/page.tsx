@@ -23,14 +23,14 @@ export default function Home() {
       <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         <button
           style={buttonStyle}
-          onClick={() => router.push("/create")}
+          onClick={() => router.push("/create-room")}
         >
           Criar Sala
         </button>
 
         <button
           style={buttonStyle}
-          onClick={() => router.push("/join")}
+          onClick={() => router.push("/join-room")}
         >
           Entrar em Uma Sala
         </button>
