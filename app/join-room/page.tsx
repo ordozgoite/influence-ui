@@ -5,43 +5,36 @@ import { joinRoom } from "./actions";
 import { useRouter } from "next/navigation";
 
 export default function JoinRoomPage() {
-  // O estado 'username' já existia, mas vamos usá-lo explicitamente
-  const [username, setUsername] = useState(""); 
+  const [username, setUsername] = useState("");
   const [error, setError] = useState("");
   const [code, setCode] = useState("");
-  const router = useRouter(); 
+  const router = useRouter();
 
-  // Ajuste a submissão para ser assíncrona
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 1. Validação básica
     if (code.trim().length !== 6) {
-        setError("O código da sala deve ter 6 dígitos.");
-        return;
+      setError("O código da sala deve ter 6 dígitos.");
+      return;
     }
     if (username.trim().length < 3) {
-        setError("O nome deve ter pelo menos 3 caracteres.");
-        return;
+      setError("O nome deve ter pelo menos 3 caracteres.");
+      return;
     }
 
-    setError(""); // Limpa erros anteriores
+    setError("");
 
     try {
-      // 2. Chama a action, passando o código e o username
-      // Assumindo que 'joinRoom' é a Server Action que faz a requisição.
-      // E que ela retorna a mesma estrutura { game, player, token }.
       const data = await joinRoom(code, username);
 
-      // 3. Armazena o token e o game data no sessionStorage
       sessionStorage.setItem('gameToken', data.token);
       sessionStorage.setItem('currentGameData', JSON.stringify(data.game));
-      
-      // 4. Redireciona para a sala com o código na query
-      router.push(`/room?code=${data.game.joinCode}`); 
+      sessionStorage.setItem('currentPlayerID', data.player.id);
+
+      router.push(`/room?code=${data.game.joinCode}`);
     } catch (e) {
       console.error(e);
-      setError("Falha ao entrar na sala. Tente o código e o nome novamente.");
+      setError("Failed to join room. Try again.");
     }
   };
 
@@ -100,9 +93,9 @@ export default function JoinRoomPage() {
 
         {/* Exibição de Erros */}
         {error && (
-            <p style={{ color: 'red', fontSize: '14px', textAlign: 'center' }}>
-                {error}
-            </p>
+          <p style={{ color: 'red', fontSize: '14px', textAlign: 'center' }}>
+            {error}
+          </p>
         )}
 
         {/* Botão de Submissão */}

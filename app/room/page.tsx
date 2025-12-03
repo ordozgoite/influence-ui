@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useEffect, useState, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { GameData } from "../create-room/schemas";
+import { PlayerJoinedEventSchema } from "./schemas";
 
 export default function LobbyPage() {
   const searchParams = useSearchParams();
@@ -10,48 +11,99 @@ export default function LobbyPage() {
 
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [currentPlayerID, setCurrentPlayerID] = useState<string | null>(null);
 
-  const roomCode = searchParams.get('code');
+  const wsRef = useRef<WebSocket | null>(null);
+
+  const roomCode = searchParams.get("code");
 
   useEffect(() => {
     if (!roomCode) {
-      router.replace('/lobby');
+      router.replace("/lobby");
       return;
     }
 
-    const storedToken = sessionStorage.getItem('gameToken');
-    const storedGame = sessionStorage.getItem('currentGameData');
+    const storedToken = sessionStorage.getItem("gameToken");
+    const storedGame = sessionStorage.getItem("currentGameData");
+    const storedPlayerID = sessionStorage.getItem("currentPlayerID");
 
-    if (storedToken && storedGame) {
-      const parsedGame = JSON.parse(storedGame);
+    if (!storedToken || !storedGame || !storedPlayerID) {
+      router.replace("/create-room");
+      return;
+    }
 
-      if (parsedGame.joinCode !== roomCode) {
-        console.error("Mismatched room code in storage and URL.");
-        sessionStorage.removeItem('gameToken');
-        sessionStorage.removeItem('currentGameData');
-        router.replace('/create-room');
+    const parsedGame = JSON.parse(storedGame);
+
+    if (parsedGame.joinCode !== roomCode) {
+      console.error("Mismatched room code in storage and URL.");
+      sessionStorage.removeItem("gameToken");
+      sessionStorage.removeItem("currentGameData");
+      sessionStorage.removeItem("currentPlayerID");
+      router.replace("/create-room");
+      return;
+    }
+
+    setToken(storedToken);
+    setGameData(parsedGame);
+    setCurrentPlayerID(storedPlayerID);
+  }, [roomCode, router]);
+
+  useEffect(() => {
+    if (!gameData || !token) return;
+
+    if (wsRef.current) return;
+
+    console.log("🔌 Abrindo WebSocket...");
+
+    const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL}/ws/rooms/${gameData.gameID}?token=${token}`;
+    const ws = new WebSocket(wsUrl);
+
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log("WS conectado!");
+    };
+
+    ws.onmessage = (ev) => {
+      console.log("WS message:", ev.data);
+
+      const json = JSON.parse(ev.data);
+
+      const parsed = PlayerJoinedEventSchema.safeParse(json);
+
+      if (!parsed.success) {
+        console.warn("Evento recebido sem schema correspondente:", json);
         return;
       }
 
-      setToken(storedToken);
-      setGameData(parsedGame);
-    } else {
-      router.replace('/create-room');
-    }
-  }, [roomCode, router]);
+      setGameData(parsed.data.state);
+    };
+
+    ws.onerror = (err) => {
+      console.error("WS error:", err);
+    };
+
+    ws.onclose = () => {
+      console.log("WS fechado.");
+      wsRef.current = null;
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [gameData?.gameID, token]);
 
   if (!gameData) {
     return (
       <main className="flex flex-col items-center pt-12 gap-6 px-6">
         <h1 className="text-4xl font-bold">Carregando Sala...</h1>
-        <p>Se demorar, verifique se você criou a sala corretamente.</p>
+        <p>Aguarde um instante.</p>
       </main>
-    );  
+    );
   }
 
   const players = gameData.players;
-  const currentPlayerId = gameData.adminID; // TODO: verificar se o player é o host
-  const isHost = players.find((p) => p.id === currentPlayerId)?.id === currentPlayerId;
+  const isHost = gameData.adminID === currentPlayerID?.toString();
 
   return (
     <main className="flex flex-col items-center pt-12 gap-6 px-6">
@@ -88,11 +140,9 @@ export default function LobbyPage() {
       </div>
 
       {/* Status */}
-      <div className="text-gray-600">
-        Aguardando jogadores entrarem...
-      </div>
+      <div className="text-gray-600">Aguardando jogadores entrarem...</div>
 
-      {/* Botão Start - aparece só para o Host */}
+      {/* Botão Start (somente host) */}
       {isHost && (
         <button
           className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-3 rounded-lg shadow-md"

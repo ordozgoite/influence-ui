@@ -19,9 +19,10 @@ export default function CreateRoomPage() {
 
     try {
       const data = await createRoom(username);
-      
+
       sessionStorage.setItem('gameToken', data.token);
       sessionStorage.setItem('currentGameData', JSON.stringify(data.game));
+      sessionStorage.setItem('currentPlayerID', data.player.id);
 
       router.push(`/room?code=${data.game.joinCode}`);
     } catch (e) {
