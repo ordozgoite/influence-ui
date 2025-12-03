@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { GameData } from "../create-room/schemas";
 import { PlayerJoinedEventSchema } from "./schemas";
+import { startGame } from "./actions";
 
 export default function LobbyPage() {
   const searchParams = useSearchParams();
@@ -105,6 +106,13 @@ export default function LobbyPage() {
   const players = gameData.players;
   const isHost = gameData.adminID === currentPlayerID?.toString();
 
+  const handleStartGame = async () => {
+    if (!gameData?.gameID || !token) return;
+
+    const data = await startGame(gameData.gameID, token);
+    console.log("Game started:", data);
+  };
+
   return (
     <main className="flex flex-col items-center pt-12 gap-6 px-6">
       <h1 className="text-4xl font-bold">Sala</h1>
@@ -146,6 +154,7 @@ export default function LobbyPage() {
       {isHost && (
         <button
           className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-3 rounded-lg shadow-md"
+          onClick={handleStartGame}
         >
           Iniciar Jogo
         </button>

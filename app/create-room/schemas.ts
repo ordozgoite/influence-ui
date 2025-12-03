@@ -1,11 +1,16 @@
 import { z } from "zod";
 
+export const InfluenceSchema = z.object({
+  role: z.string().optional(),
+  revealed: z.boolean(),
+});
+
 export const PlayerSchema = z.object({
   id: z.string(),
   nickname: z.string(),
   coins: z.number(),
   alive: z.boolean(),
-  influences: z.array(z.any()),
+  influences: z.array(InfluenceSchema).length(2),
 });
 
 export const GameSchema = z.object({
@@ -27,5 +32,7 @@ export const CreateRoomResponseSchema = z.object({
 
 export const JoinRoomResponseSchema = CreateRoomResponseSchema;
 
+export type InfluenceData = z.infer<typeof InfluenceSchema>
+export type PlayerData = z.infer<typeof PlayerSchema>
 export type GameData = z.infer<typeof GameSchema>;
 export type CreateRoomResponse = z.infer<typeof CreateRoomResponseSchema>;
