@@ -1,31 +1,80 @@
 "use client";
 
-import { useState } from "react";
-import { PlayerData } from "../create-room/schemas";
+import { useEffect, useRef, useState } from "react";
+import { GameData, PlayerData } from "../create-room/schemas";
 import { randomUUID } from "crypto";
 import InfluenceCard from "../components/InfluenceCard";
+import { useRouter } from "next/navigation";
 
 export default function RoomPage() {
-  const [players, setPlayers] = useState<PlayerData[]>([
-    { id: "1", nickname: "ordozgoite", coins: 2, alive: true, influences: [
-      { role: "Contessa", revealed: false }, 
-      { role: "Contessa", revealed: false }
-    ] },
-    { id: "2", nickname: "amanda", coins: 2, alive: true, influences: [
-      { revealed: false }, 
-      { revealed: false }
-    ] },
-    { id: "3", nickname: "ch3to", coins: 2, alive: true, influences: [
-      { role: "Contessa", revealed: true }, 
-      { revealed: false }
-    ] },
-    { id: "4", nickname: "marcelasso", coins: 2, alive: true, influences: [
-      { revealed: false }, 
-      { revealed: false }] },
+  const router = useRouter();
 
-  ]);
+  const [gameData, setGameData] = useState<GameData | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [currentPlayerID, setCurrentPlayerID] = useState<string | null>(null);
+  const [currentPlayer, setCurrentPlayer] = useState<PlayerData | null>(null);
 
-  const currentPlayer = players[0];
+  const wsRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    const storedGame = sessionStorage.getItem("currentGameData");
+    const storedToken = sessionStorage.getItem("gameToken");
+    const storedPlayerID = sessionStorage.getItem("currentPlayerID");
+
+    if (!storedGame || !storedToken || !storedPlayerID) {
+      router.replace("/lobby");
+      return;
+    }
+
+    const parsedGame = JSON.parse(storedGame) as GameData;
+
+    setGameData(parsedGame);
+    setToken(storedToken);
+    setCurrentPlayerID(storedPlayerID);
+
+    const player = parsedGame.players.find(p => p.id === storedPlayerID);
+    if (!player) {
+      router.replace("/lobby");
+      return;
+    }
+    setCurrentPlayer(player);
+  }, [router]);
+
+  useEffect(() => {
+    if (!gameData || !token) return;
+    if (wsRef.current) return;
+
+    const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL}/ws/rooms/${gameData.gameID}?token=${token}`;
+    const ws = new WebSocket(wsUrl);
+
+    wsRef.current = ws;
+
+    ws.onmessage = (ev) => {
+      const json = JSON.parse(ev.data);
+
+      if (!json.state) return;
+
+      const newState = json.state as GameData;
+      setGameData(newState);
+
+      const p = newState.players.find(p => p.id === currentPlayerID);
+      if (p) setCurrentPlayer(p);
+    };
+
+    ws.onclose = () => {
+      wsRef.current = null;
+    };
+
+    return () => ws.close();
+  }, [gameData, token, currentPlayerID]);
+
+  if (!gameData || !token || !currentPlayerID || !currentPlayer) {
+    return <div>Loading...</div>;
+  }
+
+  if (!gameData || !token || !currentPlayerID || !currentPlayer) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <main className="h-screen w-full bg-gray-100 flex overflow-hidden">
@@ -33,7 +82,8 @@ export default function RoomPage() {
 
         {/* COLUNA ESQUERDA – LISTA DE JOGADORES */}
         <aside className="bg-white border-r border-gray-200 p-3 flex flex-col gap-3 overflow-y-auto">
-          {players.map((p) => (
+          {gameData.players.filter(p => p.id !== currentPlayerID).map((p) => (
+            /* TODO: Exibir apenas os oponentes */
             <div
               key={p.id}
               className="flex flex-col gap-2 bg-gray-50 px-3 py-2 rounded-md shadow-sm"

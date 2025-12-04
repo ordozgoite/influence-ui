@@ -18,8 +18,14 @@ export const PlayerJoinedEventSchema = BaseEventSchema.extend({
   }),
 });
 
+export const GameStartedEventSchema = BaseEventSchema.extend({
+  eventType: z.literal("game_started"),
+  state: GameSchema,
+});
+
 export const WebSocketEventSchema = z.discriminatedUnion("eventType", [
   PlayerJoinedEventSchema,
+  GameStartedEventSchema,
   // TODO: adicionar mais eventos aqui
 ]);
 

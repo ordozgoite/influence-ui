@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { GameData } from "../create-room/schemas";
-import { PlayerJoinedEventSchema } from "./schemas";
+import { PlayerJoinedEventSchema, WebSocketEventSchema } from "./schemas";
 import { startGame } from "./actions";
 
 export default function LobbyPage() {
@@ -70,11 +70,25 @@ export default function LobbyPage() {
 
       const json = JSON.parse(ev.data);
 
-      const parsed = PlayerJoinedEventSchema.safeParse(json);
+      const parsed = WebSocketEventSchema.safeParse(json);
+
+      console.log("Parsed:", parsed);
 
       if (!parsed.success) {
         console.warn("Evento recebido sem schema correspondente:", json);
         return;
+      }
+
+      switch (parsed.data.eventType) {
+        case "player_joined":
+          setGameData(parsed.data.state);
+          break;
+        case "game_started":
+          sessionStorage.setItem('gameToken', token);
+          sessionStorage.setItem('currentGameData', JSON.stringify(parsed.data.state));
+          sessionStorage.setItem('currentPlayerID', currentPlayerID?.toString() || "");
+          router.push(`/game`);
+          break;
       }
 
       setGameData(parsed.data.state);

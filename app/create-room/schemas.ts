@@ -10,7 +10,7 @@ export const PlayerSchema = z.object({
   nickname: z.string(),
   coins: z.number(),
   alive: z.boolean(),
-  influences: z.array(InfluenceSchema).length(2),
+  influences: z.array(InfluenceSchema).max(2),
 });
 
 export const GameSchema = z.object({
