@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { GameData } from "../create-room/schemas";
 import { PlayerJoinedEventSchema, WebSocketEventSchema } from "./schemas";
 import { startGame } from "./actions";
+import { useWS } from "../WebSocketContext";
 
 export default function LobbyPage() {
   const searchParams = useSearchParams();
@@ -14,7 +15,7 @@ export default function LobbyPage() {
   const [token, setToken] = useState<string | null>(null);
   const [currentPlayerID, setCurrentPlayerID] = useState<string | null>(null);
 
-  const wsRef = useRef<WebSocket | null>(null);
+  const { ws, connect } = useWS();
 
   const roomCode = searchParams.get("code");
 
@@ -51,62 +52,46 @@ export default function LobbyPage() {
 
   useEffect(() => {
     if (!gameData || !token) return;
+  
+    const url = `${process.env.NEXT_PUBLIC_WS_URL}/ws/rooms/${gameData.gameID}?token=${token}`;
+    connect(url);
+  }, [gameData, token]);
 
-    if (wsRef.current) return;
-
-    console.log("🔌 Abrindo WebSocket...");
-
-    const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL}/ws/rooms/${gameData.gameID}?token=${token}`;
-    const ws = new WebSocket(wsUrl);
-
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      console.log("WS conectado!");
-    };
-
+  useEffect(() => {
+    if (!ws) return;
+  
     ws.onmessage = (ev) => {
-      console.log("WS message:", ev.data);
+      console.log("📩 WS message (ROOM):", ev.data);
 
       const json = JSON.parse(ev.data);
 
       const parsed = WebSocketEventSchema.safeParse(json);
 
-      console.log("Parsed:", parsed);
-
       if (!parsed.success) {
-        console.warn("Evento recebido sem schema correspondente:", json);
+        console.warn("❌ Error: Event received without corresponding schema:", json);
         return;
       }
 
+      console.log("✅ Parsed event:", parsed);
+
       switch (parsed.data.eventType) {
         case "player_joined":
+          console.log("✅ Player joined event:", parsed.data);
           setGameData(parsed.data.state);
           break;
         case "game_started":
+          if (!token || !currentPlayerID) return;
+          console.log("✅ Game started event:", parsed.data);
           sessionStorage.setItem('gameToken', token);
           sessionStorage.setItem('currentGameData', JSON.stringify(parsed.data.state));
           sessionStorage.setItem('currentPlayerID', currentPlayerID?.toString() || "");
           router.push(`/game`);
           break;
       }
-
-      setGameData(parsed.data.state);
+      
     };
-
-    ws.onerror = (err) => {
-      console.error("WS error:", err);
-    };
-
-    ws.onclose = () => {
-      console.log("WS fechado.");
-      wsRef.current = null;
-    };
-
-    return () => {
-      ws.close();
-    };
-  }, [gameData?.gameID, token]);
+  
+  }, [ws]);
 
   if (!gameData) {
     return (

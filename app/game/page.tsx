@@ -1,28 +1,33 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { GameData, PlayerData } from "../create-room/schemas";
+import { GameData, InfluenceData, PlayerData } from "../create-room/schemas";
 import { randomUUID } from "crypto";
 import InfluenceCard from "../components/InfluenceCard";
 import { useRouter } from "next/navigation";
+import { WebSocketEventSchema } from "../room/schemas";
+import { useWS } from "../WebSocketContext";
+import { getPlayerInfluences } from "./actions";
 
-export default function RoomPage() {
+export default function GamePage() {
   const router = useRouter();
 
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [currentPlayerID, setCurrentPlayerID] = useState<string | null>(null);
   const [currentPlayer, setCurrentPlayer] = useState<PlayerData | null>(null);
+  const [currentPlayerInfluences, setCurrentPlayerInfluences] = useState<InfluenceData[]>([]);
 
-  const wsRef = useRef<WebSocket | null>(null);
+  const { ws } = useWS();
 
   useEffect(() => {
     const storedGame = sessionStorage.getItem("currentGameData");
     const storedToken = sessionStorage.getItem("gameToken");
     const storedPlayerID = sessionStorage.getItem("currentPlayerID");
 
+
     if (!storedGame || !storedToken || !storedPlayerID) {
-      router.replace("/lobby");
+      router.replace("/room");
       return;
     }
 
@@ -34,38 +39,62 @@ export default function RoomPage() {
 
     const player = parsedGame.players.find(p => p.id === storedPlayerID);
     if (!player) {
-      router.replace("/lobby");
+      router.replace("/room");
       return;
     }
+    console.log("✅ Current player found in game data: ", player);
     setCurrentPlayer(player);
+
+    console.log("✅ Current player: ", currentPlayer);
   }, [router]);
 
   useEffect(() => {
-    if (!gameData || !token) return;
-    if (wsRef.current) return;
-
-    const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL}/ws/rooms/${gameData.gameID}?token=${token}`;
-    const ws = new WebSocket(wsUrl);
-
-    wsRef.current = ws;
+    if (!ws) return;
 
     ws.onmessage = (ev) => {
+      console.log("📩 WS message (GAME):", ev.data);
       const json = JSON.parse(ev.data);
+      console.log("🔍 JSON:", json);
 
-      if (!json.state) return;
+      const parsed = WebSocketEventSchema.safeParse(json);
 
-      const newState = json.state as GameData;
-      setGameData(newState);
+      if (!parsed.success) {
+        console.warn("❌ Error: Event received without corresponding schema:", json);
+        return;
+      }
 
-      const p = newState.players.find(p => p.id === currentPlayerID);
-      if (p) setCurrentPlayer(p);
+      console.log("✅ Parsed event:", parsed);
+
+      switch (parsed.data.eventType) {
+        case "player_influences_updated":
+          console.log("✅ Player influences updated event:", parsed.data);
+          setCurrentPlayerInfluences(parsed.data.payload.influences);
+          console.log("✅ Updated current player influences:", parsed.data.payload.influences);
+          break;
+      }
     };
 
-    ws.onclose = () => {
-      wsRef.current = null;
-    };
+  }, [ws]);
 
-    return () => ws.close();
+  useEffect(() => {
+    console.log("Entrou no useEffect");
+    if (!gameData || !token || !currentPlayerID) return;
+
+    console.log("Passou do if");
+  
+    const fetchInfluences = async () => {
+      try {
+        const influences = await getPlayerInfluences(gameData.gameID, token);
+  
+        setCurrentPlayerInfluences(influences);
+  
+        console.log("✅ Updated current player influences:", influences);
+      } catch (err) {
+        console.error("❌ Failed to fetch player influences:", err);
+      }
+    };
+  
+    fetchInfluences();
   }, [gameData, token, currentPlayerID]);
 
   if (!gameData || !token || !currentPlayerID || !currentPlayer) {
@@ -90,7 +119,7 @@ export default function RoomPage() {
             >
               <div className="flex items-center justify-between">
                 <div className="font-semibold text-black">{p.nickname}</div>
-                
+
                 {/* moedas */}
                 <div className="flex items-center gap-1 text-black font-bold">
                   <span className="text-xl">🪙</span>
@@ -134,9 +163,15 @@ export default function RoomPage() {
 
             {/* SUAS CARTAS */}
             <div className="flex gap-3">
-              {currentPlayer.influences.map((influence, i) => (
-                <InfluenceCard key={i} influence={influence} size="medium" />
-              ))}
+              {currentPlayerInfluences.length === 0 ? (
+                <div className="text-gray-500">
+                  <span className="text-sm">You don't have any influences yet</span>
+                </div>
+              ) : (
+                currentPlayerInfluences.map((influence, i) => (
+                  <InfluenceCard key={i} influence={influence} size="medium" />
+                ))
+              )}
             </div>
           </div>
         </section>
