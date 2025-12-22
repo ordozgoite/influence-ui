@@ -14,6 +14,20 @@ export default function LobbyPage() {
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [currentPlayerID, setCurrentPlayerID] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyCode = async () => {
+    if (!roomCode) return;
+
+    try {
+      await navigator.clipboard.writeText(roomCode);
+      setCopied(true);
+
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy room code", err);
+    }
+  };
 
   const { ws, connect } = useWS();
 
@@ -52,14 +66,14 @@ export default function LobbyPage() {
 
   useEffect(() => {
     if (!gameData || !token) return;
-  
+
     const url = `${process.env.NEXT_PUBLIC_WS_URL}/ws/rooms/${gameData.gameID}?token=${token}`;
     connect(url);
   }, [gameData, token]);
 
   useEffect(() => {
     if (!ws) return;
-  
+
     ws.onmessage = (ev) => {
       console.log("📩 WS message (ROOM):", ev.data);
 
@@ -84,13 +98,14 @@ export default function LobbyPage() {
           console.log("✅ Game started event:", parsed.data);
           sessionStorage.setItem('gameToken', token);
           sessionStorage.setItem('currentGameData', JSON.stringify(parsed.data.state));
-          sessionStorage.setItem('currentPlayerID', currentPlayerID?.toString() || "");
+          console.log("⚠️ Current player ID que vai ser salvo:", currentPlayerID);
+          sessionStorage.setItem('currentPlayerID', currentPlayerID);
           router.push(`/game`);
           break;
       }
-      
+
     };
-  
+
   }, [ws]);
 
   if (!gameData) {
@@ -118,10 +133,21 @@ export default function LobbyPage() {
 
       {/* Código da sala */}
       <div className="bg-white rounded-lg shadow-md p-6 w-full max-w-md text-center">
-        <p className="text-lg text-gray-600">Código da sala:</p>
-        <p className="text-3xl text-black font-extrabold tracking-widest">
-          {roomCode}
-        </p>
+        <p className="text-lg text-gray-600 mb-2">Código da sala:</p>
+
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-3xl text-black font-extrabold tracking-widest">
+            {roomCode}
+          </span>
+
+          <button
+            onClick={handleCopyCode}
+            className="px-3 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 active:scale-95 transition text-sm font-semibold"
+            aria-label="Copiar código da sala"
+          >
+            {copied ? "✔ Copiado" : "📋 Copiar"}
+          </button>
+        </div>
       </div>
 
       {/* Lista de jogadores */}
