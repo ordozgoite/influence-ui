@@ -5,9 +5,10 @@ import { GameData, InfluenceData, PlayerData } from "../create-room/schemas";
 import { randomUUID } from "crypto";
 import InfluenceCard from "../components/InfluenceCard";
 import { useRouter } from "next/navigation";
-import { WebSocketEventSchema } from "../room/schemas";
+import { ActionPayload, WebSocketEventSchema } from "../room/schemas";
 import { useWS } from "../WebSocketContext";
 import { declareAction, getPlayerInfluences } from "./actions";
+import ActionModal from "../components/ActionModal";
 
 export default function GamePage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function GamePage() {
   const [token, setToken] = useState<string | null>(null);
   const [currentPlayerID, setCurrentPlayerID] = useState<string | null>(null);
   const [currentPlayerInfluences, setCurrentPlayerInfluences] = useState<InfluenceData[]>([]);
+  const [activeAction, setActiveAction] = useState<ActionPayload | null>(null);
 
   const { ws } = useWS();
 
@@ -59,19 +61,7 @@ export default function GamePage() {
           console.log("✅ Action declared event:", parsed.data);
 
           setGameData(parsed.data.state);
-
-          switch (parsed.data.payload.actionPayload.actionName) {
-            case "income":
-              // TODO: Display income action UI
-              break;
-            case "foreign_aid":
-              // TODO: Display foreign aid action UI
-              break;
-            // TODO: Add more actions here
-            default:
-              console.warn("❌ Unknown action:", parsed.data.payload.actionPayload.actionName);
-              break;
-          }
+          setActiveAction(parsed.data.payload.actionPayload);
           break;
         case "player_influences_updated":
           console.log("✅ Player influences updated event:", parsed.data);
@@ -215,6 +205,25 @@ export default function GamePage() {
           </div>
         </section>
       </div>
+      {activeAction && (
+        <div className="fixed top-4 right-4 z-50 w-[320px]">
+          <ActionModal
+            isOpen={true}
+            action={activeAction}
+            onClose={() => setActiveAction(null)}
+            onContest={() => {
+              console.log("⚔️ Contest action:", activeAction.id);
+              // TODO: send contest action to server
+              setActiveAction(null);
+            }}
+            onBlock={(role: string) => {
+              console.log("🛑 Block action as:", role);
+              // TODO: send block action to server
+              setActiveAction(null);
+            }}
+          />
+        </div>
+      )}
     </main>
   );
 }

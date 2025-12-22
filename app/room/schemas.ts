@@ -30,20 +30,24 @@ export const PlayerInfluencesUpdatedEventSchema = BaseEventSchema.extend({
   }),
 });
 
+export const ActionPayloadSchema = z.object({
+  id: z.string(),
+  actionName: z.string(),
+  actorPlayerId: z.string(),
+  actorPlayerNickname: z.string(),
+  requiresTarget: z.boolean(),
+  targetPlayerId: z.string().optional(),
+  targetPlayerNickname: z.string().optional(),
+  isImmediate: z.boolean(),
+  blockableRoles: z.array(z.string()),
+  isContestable: z.boolean(),
+});
+
 export const ActionDeclaredEventSchema = BaseEventSchema.extend({
   eventType: z.literal("action_declared"),
   state: GameSchema,
   payload: z.object({
-    actionPayload: z.object({
-      id: z.string(),
-      actionName: z.string(),
-      actorPlayerId: z.string(),
-      requiresTarget: z.boolean(),
-      targetPlayerId: z.string().optional(),
-      isImmediate: z.boolean(),
-      bloackableRoles: z.array(InfluenceSchema),
-      isContestable: z.boolean(),
-    }),
+    actionPayload: ActionPayloadSchema,
   }),
 });
 
@@ -55,4 +59,5 @@ export const WebSocketEventSchema = z.discriminatedUnion("eventType", [
   // TODO: adicionar mais eventos aqui
 ]);
 
+export type ActionPayload = z.infer<typeof ActionPayloadSchema>;
 export type WebSocketEvent = z.infer<typeof WebSocketEventSchema>;
