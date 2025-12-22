@@ -7,7 +7,7 @@ import InfluenceCard from "../components/InfluenceCard";
 import { useRouter } from "next/navigation";
 import { WebSocketEventSchema } from "../room/schemas";
 import { useWS } from "../WebSocketContext";
-import { getPlayerInfluences } from "./actions";
+import { declareAction, getPlayerInfluences } from "./actions";
 
 export default function GamePage() {
   const router = useRouter();
@@ -15,7 +15,6 @@ export default function GamePage() {
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [currentPlayerID, setCurrentPlayerID] = useState<string | null>(null);
-  const [currentPlayer, setCurrentPlayer] = useState<PlayerData | null>(null);
   const [currentPlayerInfluences, setCurrentPlayerInfluences] = useState<InfluenceData[]>([]);
 
   const { ws } = useWS();
@@ -36,16 +35,6 @@ export default function GamePage() {
     setGameData(parsedGame);
     setToken(storedToken);
     setCurrentPlayerID(storedPlayerID);
-
-    const player = parsedGame.players.find(p => p.id === storedPlayerID);
-    if (!player) {
-      router.replace("/room");
-      return;
-    }
-    console.log("✅ Current player found in game data: ", player);
-    setCurrentPlayer(player);
-
-    console.log("✅ Current player: ", currentPlayer);
   }, [router]);
 
   useEffect(() => {
@@ -59,13 +48,31 @@ export default function GamePage() {
       const parsed = WebSocketEventSchema.safeParse(json);
 
       if (!parsed.success) {
-        console.warn("❌ Error: Event received without corresponding schema:", json);
+        console.log("❌ Error: Event received without corresponding schema:", parsed.error);
         return;
       }
 
       console.log("✅ Parsed event:", parsed);
 
       switch (parsed.data.eventType) {
+        case "action_declared":
+          console.log("✅ Action declared event:", parsed.data);
+
+          setGameData(parsed.data.state);
+
+          switch (parsed.data.payload.actionPayload.actionName) {
+            case "income":
+              // TODO: Display income action UI
+              break;
+            case "foreign_aid":
+              // TODO: Display foreign aid action UI
+              break;
+            // TODO: Add more actions here
+            default:
+              console.warn("❌ Unknown action:", parsed.data.payload.actionPayload.actionName);
+              break;
+          }
+          break;
         case "player_influences_updated":
           console.log("✅ Player influences updated event:", parsed.data);
           setCurrentPlayerInfluences(parsed.data.payload.influences);
@@ -81,29 +88,41 @@ export default function GamePage() {
     if (!gameData || !token || !currentPlayerID) return;
 
     console.log("Passou do if");
-  
+
     const fetchInfluences = async () => {
       try {
         const influences = await getPlayerInfluences(gameData.gameID, token);
-  
+
         setCurrentPlayerInfluences(influences);
-  
+
         console.log("✅ Updated current player influences:", influences);
       } catch (err) {
         console.error("❌ Failed to fetch player influences:", err);
       }
     };
-  
+
     fetchInfluences();
   }, [gameData, token, currentPlayerID]);
 
-  if (!gameData || !token || !currentPlayerID || !currentPlayer) {
+  if (!gameData || !token || !currentPlayerID) {
     return <div>Loading...</div>;
   }
 
-  if (!gameData || !token || !currentPlayerID || !currentPlayer) {
-    return <div>Loading...</div>;
-  }
+  const handleIncomeAction = async () => {
+    try {
+      console.log('💰 Income action');
+
+      const updatedGameState = await declareAction(gameData.gameID, { actionName: "income" }, token);
+
+      setGameData(updatedGameState);
+      console.log('✅ Updated game data:', updatedGameState);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const currentTurnPlayerID =
+    gameData.players[gameData.turnIndex]?.id;
 
   return (
     <main className="h-screen w-full bg-gray-100 flex overflow-hidden">
@@ -118,7 +137,15 @@ export default function GamePage() {
               className="flex flex-col gap-2 bg-gray-50 px-3 py-2 rounded-md shadow-sm"
             >
               <div className="flex items-center justify-between">
-                <div className="font-semibold text-black">{p.nickname}</div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-black">{p.nickname}</span>
+
+                  {p.id === currentTurnPlayerID && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-500 text-white font-bold">
+                      TURNO
+                    </span>
+                  )}
+                </div>
 
                 {/* moedas */}
                 <div className="flex items-center gap-1 text-black font-bold">
@@ -146,18 +173,30 @@ export default function GamePage() {
             <InfluenceCard influence={{ role: "Deck", revealed: false }} size="medium" />
 
             {/* RESERVA */}
-            <button className="active:scale-95 transition">
-              <span className="text-4xl" style={{ fontSize: '4.5rem' }}>💰</span>
+            <button
+              onClick={handleIncomeAction}
+              className="active:scale-95 transition"
+            >
+              <span className="text-4xl" style={{ fontSize: '4.5rem' }}>
+                💰
+              </span>
             </button>
           </div>
 
           {/* PAINEL DO JOGADOR */}
           <div className="flex flex-col bg-white p-4 rounded-xl shadow-md">
             <h2 className="text-xl font-bold text-black mb-2 flex items-center justify-between">
-              <span>{currentPlayer.nickname}</span>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-black">{gameData.players.find(p => p.id === currentPlayerID)?.nickname}</span>
+                {currentPlayerID === currentTurnPlayerID && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-500 text-white font-bold">
+                    TURNO
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-1 text-black font-bold">
                 <span className="text-xl">🪙</span>
-                <span>{currentPlayer.coins}</span>
+                <span>{gameData.players.find(p => p.id === currentPlayerID)?.coins}</span>
               </div>
             </h2>
 

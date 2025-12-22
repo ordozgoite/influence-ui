@@ -30,10 +30,28 @@ export const PlayerInfluencesUpdatedEventSchema = BaseEventSchema.extend({
   }),
 });
 
+export const ActionDeclaredEventSchema = BaseEventSchema.extend({
+  eventType: z.literal("action_declared"),
+  state: GameSchema,
+  payload: z.object({
+    actionPayload: z.object({
+      id: z.string(),
+      actionName: z.string(),
+      actorPlayerId: z.string(),
+      requiresTarget: z.boolean(),
+      targetPlayerId: z.string().optional(),
+      isImmediate: z.boolean(),
+      bloackableRoles: z.array(InfluenceSchema),
+      isContestable: z.boolean(),
+    }),
+  }),
+});
+
 export const WebSocketEventSchema = z.discriminatedUnion("eventType", [
   PlayerJoinedEventSchema,
   GameStartedEventSchema,
   PlayerInfluencesUpdatedEventSchema,
+  ActionDeclaredEventSchema,
   // TODO: adicionar mais eventos aqui
 ]);
 
