@@ -159,6 +159,7 @@ export default function GamePage() {
   };
 
   const currentTurnPlayerID = gameData.players[gameData.turnIndex]?.id;
+  const isMyTurn = currentPlayerID === currentTurnPlayerID;
 
   return (
     <main className="h-screen w-full bg-gray-100 flex overflow-hidden">
@@ -174,6 +175,7 @@ export default function GamePage() {
               <div key={p.id} className="relative">
                 {/* ✅ CARD INTEIRO CLICÁVEL */}
                 <button
+                  disabled={!isMyTurn}
                   onClick={() => {
                     // fecha outros menus
                     setIsDeckMenuOpen(false);
@@ -250,6 +252,7 @@ export default function GamePage() {
             {/* DECK */}
             <div ref={deckMenuRef} className="relative">
               <button
+                disabled={!isMyTurn}
                 onClick={() => {
                   setIsDeckMenuOpen((prev) => !prev);
                   setIsMoneyMenuOpen(false);
@@ -278,6 +281,7 @@ export default function GamePage() {
             {/* RESERVA */}
             <div ref={moneyMenuRef} className="relative">
               <button
+                disabled={!isMyTurn}
                 onClick={() => {
                   setIsMoneyMenuOpen((prev) => !prev);
                   setPlayerMenuOpenID(null);

@@ -35,7 +35,7 @@ export default function ActionModal({
     !isImmediate && (isContestable || blockableRoles.length > 0);
 
   useEffect(() => {
-    if (!isOpen || !isImmediate) return;
+    if (!isImmediate) return;
 
     setSecondsLeft(10);
 
@@ -51,7 +51,7 @@ export default function ActionModal({
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [isOpen, isImmediate, onClose]);
+  }, [action.id, isImmediate]);
 
   if (!isOpen) return null;
 
